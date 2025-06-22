@@ -17,6 +17,7 @@ A Model Context Protocol (MCP) server for Kubernetes debugging and inspection. T
   - `list_resources`: List and filter Kubernetes resources
   - `describe_resource`: Get detailed information about specific resources
   - `get_pod_logs`: Retrieve pod logs with advanced filtering
+  - `rollout_restart`: Perform a rolling restart of a Kubernetes deployment
 
 ## Installation
 
