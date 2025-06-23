@@ -24,16 +24,14 @@ func NewKubernetesClient() (*KubernetesClient, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		// fallback to kubeconfig
-		var kubeconfig string
-		if kubeconfigEnv := os.Getenv("KUBECONFIG"); kubeconfigEnv != "" {
-			kubeconfig = kubeconfigEnv
-		} else {
-			// Try multiple ways to find home directory
-			home := os.Getenv("HOME")
+		kubeconfig := os.Getenv("KUBECONFIG")
+		if kubeconfig == "" {
+			home, herr := os.UserHomeDir()
+			if herr != nil || home == "" {
+				home = os.Getenv("HOME")
+			}
 			if home == "" {
-				if userHome, err := os.UserHomeDir(); err == nil {
-					home = userHome
-				}
+				return nil, fmt.Errorf("failed to determine home directory: set KUBECONFIG or HOME environment variable")
 			}
 			kubeconfig = filepath.Join(home, ".kube", "config")
 		}
