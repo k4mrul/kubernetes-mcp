@@ -36,17 +36,10 @@ func (t *ListGCPSecretTool) Tool() mcp.Tool {
 }
 
 func (t *ListGCPSecretTool) Handler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	input, err := parseAndValidateListGCPSecretParams(req.Params.Arguments)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse input: %w", err)
-	}
-
-	if input.ProjectID == "" {
-		input.ProjectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
-	}
-	if input.ProjectID == "" {
-		return nil, fmt.Errorf("projectId must be provided (either as input or environment variable)")
-	}
+	// input, err := parseAndValidateListGCPSecretParams(req.Params.Arguments)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to parse input: %w", err)
+	// }
 
 	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
 		return nil, fmt.Errorf("google credentials not found: set GOOGLE_APPLICATION_CREDENTIALS to a service account JSON file")
@@ -58,50 +51,41 @@ func (t *ListGCPSecretTool) Handler(ctx context.Context, req mcp.CallToolRequest
 	}
 	defer client.Close()
 
-	parent := fmt.Sprintf("projects/%s", input.ProjectID)
-	it := client.ListSecrets(ctx, &secretmanagerpb.ListSecretsRequest{Parent: parent})
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	var secrets []map[string]any
-	for {
-		secret, err := it.Next()
-		if err != nil {
-			if err.Error() == "iterator done" || err.Error() == "no more items in iterator" {
-				break
-			}
-			return nil, fmt.Errorf("failed to list secrets: %w", err)
-		}
 
-		// Get the latest version's content
-		latestVersion := fmt.Sprintf("%s/versions/latest", secret.Name)
-		accessReq := &secretmanagerpb.AccessSecretVersionRequest{Name: latestVersion}
-		result, err := client.AccessSecretVersion(ctx, accessReq)
-		var payload string
-		if err == nil && result != nil && result.Payload != nil {
-			payload = string(result.Payload.Data)
-		} else {
-			payload = "(unable to fetch latest version or secret is empty)"
-		}
-
-		secrets = append(secrets, map[string]any{
-			"name":    secret.Name,
-			"payload": payload,
-		})
+	// Only list the secret dokan-dev-staging-secrets
+	secretName := os.Getenv("GCP_SECRET_NAME")
+	secretFullName := fmt.Sprintf("projects/%s/secrets/%s", projectID, secretName)
+	// Get the latest version's content
+	latestVersion := fmt.Sprintf("%s/versions/latest", secretFullName)
+	accessReq := &secretmanagerpb.AccessSecretVersionRequest{Name: latestVersion}
+	result, err := client.AccessSecretVersion(ctx, accessReq)
+	var payload string
+	if err == nil && result != nil && result.Payload != nil {
+		payload = string(result.Payload.Data)
+	} else {
+		payload = "(unable to fetch latest version or secret is empty)"
 	}
+	secrets = append(secrets, map[string]any{
+		"name":    secretFullName,
+		"payload": payload,
+	})
 
-	// Build the secrets slice but do not include it in the output
-	_ = secrets // keep for possible future use, but not returned
-
+	// _ = secrets // Uncomment if you want to include secrets in the output
 	output := map[string]any{
 		// "projectId": input.ProjectID,
-		"status": "Listed all secrets in the project",
+		"secrets": secrets,
+		"status":  "Listed all secrets in the project",
 	}
 	out, _ := json.MarshalIndent(output, "", "  ")
 	return mcp.NewToolResultText(string(out)), nil
 }
 
-func parseAndValidateListGCPSecretParams(args map[string]any) (*ListGCPSecretInput, error) {
-	input := &ListGCPSecretInput{}
-	if v, ok := args["projectId"]; ok && v != nil {
-		input.ProjectID = v.(string)
-	}
-	return input, nil
-}
+// func parseAndValidateListGCPSecretParams(args map[string]any) (*ListGCPSecretInput, error) {
+// 	input := &ListGCPSecretInput{}
+// 	if v, ok := args["projectId"]; ok && v != nil {
+// 		input.ProjectID = v.(string)
+// 	}
+// 	return input, nil
+// }

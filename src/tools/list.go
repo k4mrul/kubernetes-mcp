@@ -35,6 +35,48 @@ type ResourceWithStatus struct {
 	Status    interface{} `json:"status,omitempty"`
 }
 
+// PodSummary represents a minimal summary for a Pod
+// Only used for kind == "Pod"
+type PodSummary struct {
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace"`
+	Phase        string `json:"phase"`
+	Ready        bool   `json:"ready"`
+	RestartCount int    `json:"restartCount"`
+	StartTime    string `json:"startTime"`
+}
+
+// DeploymentSummary represents a minimal summary for a Deployment
+// Only used for kind == "Deployment"
+type DeploymentSummary struct {
+	Name        string `json:"name"`
+	Namespace   string `json:"namespace"`
+	Replicas    int32  `json:"replicas"`
+	Available   int32  `json:"available"`
+	Unavailable int32  `json:"unavailable"`
+	Updated     int32  `json:"updated"`
+	Ready       int32  `json:"ready"`
+}
+
+// ServiceSummary represents a minimal summary for a Service
+// Only used for kind == "Service"
+type ServiceSummary struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace"`
+	Type      string   `json:"type"`
+	ClusterIP string   `json:"clusterIP"`
+	Ports     []string `json:"ports"`
+}
+
+// IngressSummary represents a minimal summary for an Ingress
+// Only used for kind == "Ingress"
+type IngressSummary struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace"`
+	Hosts     []string `json:"hosts"`
+	Addresses []string `json:"addresses"`
+}
+
 // ListTool provides functionality to list Kubernetes resources by kind.
 type ListTool struct {
 	client Client
@@ -292,7 +334,7 @@ func (l ListTool) buildListOptions(input *ListResourcesInput) metav1.ListOptions
 }
 
 // listResourcesWithStatus retrieves resources and extracts their status information.
-func (l ListTool) listResourcesWithStatus(ctx context.Context, gvrMatch *gvrMatch, input *ListResourcesInput) ([]ResourceWithStatus, error) {
+func (l ListTool) listResourcesWithStatus(ctx context.Context, gvrMatch *gvrMatch, input *ListResourcesInput) ([]interface{}, error) {
 	ri, err := l.client.ResourceInterface(*gvrMatch.ToGroupVersionResource(), gvrMatch.namespaced, input.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource interface: %w", err)
@@ -304,13 +346,144 @@ func (l ListTool) listResourcesWithStatus(ctx context.Context, gvrMatch *gvrMatc
 		return nil, fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	var resourcesWithStatus []ResourceWithStatus
+	var result []interface{}
+	kind := strings.ToLower(gvrMatch.apiRes.Kind)
 	for _, item := range unstructList.Items {
-		resourceWithStatus := l.extractResourceStatus(&item)
-		resourcesWithStatus = append(resourcesWithStatus, resourceWithStatus)
+		switch kind {
+		case "pod":
+			pod := PodSummary{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			}
+			status, found, _ := unstructured.NestedMap(item.Object, "status")
+			if found {
+				if phase, ok := status["phase"].(string); ok {
+					pod.Phase = phase
+				}
+				if startTime, ok := status["startTime"].(string); ok {
+					pod.StartTime = startTime
+				}
+				if csArr, ok := status["containerStatuses"].([]interface{}); ok {
+					allReady := true
+					restartCount := 0
+					for _, cs := range csArr {
+						if csMap, ok := cs.(map[string]interface{}); ok {
+							if ready, ok := csMap["ready"].(bool); ok {
+								allReady = allReady && ready
+							}
+							if rc, ok := csMap["restartCount"].(float64); ok {
+								restartCount += int(rc)
+							}
+						}
+					}
+					pod.Ready = allReady
+					pod.RestartCount = restartCount
+				}
+			}
+			result = append(result, pod)
+		case "deployment":
+			dep := DeploymentSummary{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			}
+			status, found, _ := unstructured.NestedMap(item.Object, "status")
+			if found {
+				if v, ok := status["replicas"].(float64); ok {
+					dep.Replicas = int32(v)
+				}
+				if v, ok := status["availableReplicas"].(float64); ok {
+					dep.Available = int32(v)
+				}
+				if v, ok := status["unavailableReplicas"].(float64); ok {
+					dep.Unavailable = int32(v)
+				}
+				if v, ok := status["updatedReplicas"].(float64); ok {
+					dep.Updated = int32(v)
+				}
+				if v, ok := status["readyReplicas"].(float64); ok {
+					dep.Ready = int32(v)
+				}
+			}
+			result = append(result, dep)
+		case "service":
+			svc := ServiceSummary{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			}
+			spec, found, _ := unstructured.NestedMap(item.Object, "spec")
+			if found {
+				if t, ok := spec["type"].(string); ok {
+					svc.Type = t
+				}
+				if cip, ok := spec["clusterIP"].(string); ok {
+					svc.ClusterIP = cip
+				}
+				if ports, ok := spec["ports"].([]interface{}); ok {
+					var portList []string
+					for _, p := range ports {
+						if portMap, ok := p.(map[string]interface{}); ok {
+							portStr := ""
+							if name, ok := portMap["name"].(string); ok {
+								portStr += name + ":"
+							}
+							if port, ok := portMap["port"].(float64); ok {
+								portStr += fmt.Sprintf("%d", int(port))
+							}
+							if protocol, ok := portMap["protocol"].(string); ok {
+								portStr += "/" + protocol
+							}
+							portList = append(portList, portStr)
+						}
+					}
+					svc.Ports = portList
+				}
+			}
+			result = append(result, svc)
+		case "ingress":
+			ing := IngressSummary{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			}
+			status, found, _ := unstructured.NestedMap(item.Object, "status")
+			if found {
+				if lb, ok := status["loadBalancer"].(map[string]interface{}); ok {
+					if ingressArr, ok := lb["ingress"].([]interface{}); ok {
+						var addresses []string
+						for _, addr := range ingressArr {
+							if addrMap, ok := addr.(map[string]interface{}); ok {
+								if ip, ok := addrMap["ip"].(string); ok {
+									addresses = append(addresses, ip)
+								}
+								if hostname, ok := addrMap["hostname"].(string); ok {
+									addresses = append(addresses, hostname)
+								}
+							}
+						}
+						ing.Addresses = addresses
+					}
+				}
+			}
+			spec, found, _ := unstructured.NestedMap(item.Object, "spec")
+			if found {
+				if rules, ok := spec["rules"].([]interface{}); ok {
+					var hosts []string
+					for _, rule := range rules {
+						if ruleMap, ok := rule.(map[string]interface{}); ok {
+							if host, ok := ruleMap["host"].(string); ok {
+								hosts = append(hosts, host)
+							}
+						}
+					}
+					ing.Hosts = hosts
+				}
+			}
+			result = append(result, ing)
+		default:
+			resourceWithStatus := l.extractResourceStatus(&item)
+			result = append(result, resourceWithStatus)
+		}
 	}
-
-	return resourcesWithStatus, nil
+	return result, nil
 }
 
 // extractResourceStatus extracts the status section from a resource.
