@@ -13,9 +13,10 @@ func RegisterTools(s *server.MCPServer, client Client) {
 		NewListTool(client),
 		NewLogTool(client),
 		NewDescribeTool(client),
-		NewRolloutTool(client), // Register the new rollout tool
-		NewChangeEnvTool(),     // Register the new change_env tool
-		NewListGCPSecretTool(), // Register the new list_gcp_secret tool
+		NewRolloutTool(client),          // Register the new rollout tool
+		NewChangeEnvTool(),              // Register the new change_env tool
+		NewListGCPSecretTool(),          // Register the new list_gcp_secret tool
+		NewListIngressPathsTool(client), // Register the new list ingress paths tool
 	}
 	for _, t := range tools {
 		s.AddTool(t.Tool(), t.Handler)

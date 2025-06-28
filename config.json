@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "command": "/Users/abdulhannan/Desktop/ai/mcp/kubernetes-mcp/kubernetes-mcp",
+      "env" :{
+        "HOME": "/Users/abdulhannan",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/abdulhannan/Downloads/dokan-dev-cef617497374.json",
+        "GOOGLE_CLOUD_PROJECT": "dokan-dev",
+        "GCP_SECRET_NAME": "dokan-dev-staging-secrets"
+      }
+    }
+  }
+}
