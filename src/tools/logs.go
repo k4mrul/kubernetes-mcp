@@ -51,7 +51,7 @@ func (l *LogTool) Tool() mcp.Tool {
 			mcp.Description("Container name within the pod (optional)"),
 		),
 		mcp.WithNumber("tail",
-			mcp.Description("Number of lines to show from the end of the logs (defaults to 100 if not specified, use 0 for all logs)"),
+			mcp.Description("Number of lines to show from the end of the logs (defaults to 50 if not specified, use 0 for all logs)"),
 		),
 		mcp.WithString("since",
 			mcp.Description("Return logs newer than a relative duration like 5s, 2m, or 3h (optional)"),
@@ -234,8 +234,8 @@ func (l *LogTool) parseAndValidateLogsParams(args map[string]any) (*KubectlLogsI
 	if tail, ok := args["tail"]; ok && tail != nil {
 		input.Tail = int64(tail.(float64))
 	} else {
-		// Default to 100 lines if not specified
-		input.Tail = 100
+		// Default to 50 lines if not specified
+		input.Tail = 50
 	}
 
 	if since, ok := args["since"]; ok && since != nil {

@@ -22,7 +22,6 @@ type IngressPath struct {
 	Path        string `json:"path"`
 	PathType    string `json:"pathType,omitempty"`
 	ServiceName string `json:"serviceName"`
-	ServicePort string `json:"servicePort"`
 }
 
 // IngressPathsResponse represents the response containing all paths from an ingress.
@@ -190,22 +189,10 @@ func (l *ListIngressPathsTool) extractIngressPaths(ingress *unstructured.Unstruc
 					if serviceName, found, _ := unstructured.NestedString(service, "name"); found {
 						ingressPath.ServiceName = serviceName
 					}
-
-					// Extract port (can be number or name)
-					if port, found, _ := unstructured.NestedMap(service, "port"); found {
-						if portNumber, found, _ := unstructured.NestedInt64(port, "number"); found {
-							ingressPath.ServicePort = fmt.Sprintf("%d", portNumber)
-						} else if portName, found, _ := unstructured.NestedString(port, "name"); found {
-							ingressPath.ServicePort = portName
-						}
-					}
 				} else {
 					// Fallback to legacy backend format
 					if serviceName, found, _ := unstructured.NestedString(backend, "serviceName"); found {
 						ingressPath.ServiceName = serviceName
-					}
-					if servicePort, found, _ := unstructured.NestedInt64(backend, "servicePort"); found {
-						ingressPath.ServicePort = fmt.Sprintf("%d", servicePort)
 					}
 				}
 			}
