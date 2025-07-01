@@ -10,12 +10,12 @@ import (
 // This allows the server to handle requests for each tool defined in the tools package.
 func RegisterTools(s *server.MCPServer, client Client) {
 	tools := []Tools{
-		NewListTool(client),             // Register the list tool
-		NewLogTool(client),              // Register the log tool
-		NewDescribeTool(client),         // Register the describe tool
-		NewRolloutTool(client),          // Register the new rollout tool
-		NewChangeEnvTool(),              // Register the new change_env tool
-		NewListGCPSecretTool(),          // Register the new list_gcp_secret tool
+		NewListTool(client),     // Register the list tool
+		NewLogTool(client),      // Register the log tool
+		NewDescribeTool(client), // Register the describe tool
+		NewRolloutTool(client),  // Register the new rollout tool
+		// NewChangeEnvTool(),              // Register the new change_env tool
+		// NewListGCPSecretTool(),          // Register the new list_gcp_secret tool
 		NewListIngressPathsTool(client), // Register the new list ingress paths tool
 	}
 	for _, t := range tools {

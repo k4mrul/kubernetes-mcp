@@ -46,3 +46,4 @@ Thumbs.db
 /dist/
 
 kubernetes-mcp
+kubernetes-mcp-amd64
